@@ -1,11 +1,7 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+const router = Router();
 import { query } from "../db.js";
 
-const router = Router();
-
-// [GET] /users - lấy toàn bộ users
 router.get("/", (_req, res) => {
   query("SELECT * FROM users", (err, results) => {
     if (err) return res.status(500).json({ error: "Lỗi DB" });
@@ -13,23 +9,39 @@ router.get("/", (_req, res) => {
   });
 });
 
-// [POST] /users - đăng ký (hash password)
-router.post("/", async (req, res) => {
+router.post("/", (req, res) => {
   const { name, email, password } = req.body;
-  const hashed = await bcrypt.hash(password, 10);
-
   query(
-    "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'user')",
-    [name, email, hashed],
+    "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+    [name, email, password],
     (err, result) => {
       if (err) return res.status(500).json({ error: "Không thêm được user" });
       res.json({ message: "✅ Đăng ký thành công", id: result.insertId });
-    }
+    },
   );
 });
 
-// [POST] /users/login - dùng bcrypt để kiểm tra
+export default router;
+import jwt from "jsonwebtoken";
+const { sign } = jwt;
+
 router.post("/login", (req, res) => {
   const { email, password } = req.body;
 
-  query("SELECT * FROM users WHERE email = ?", [email], async*
+  const sql = "SELECT * FROM users WHERE email = ? AND password = ?";
+  query(sql, [email, password], (err, results) => {
+    if (err) return res.status(500).json({ error: "Lỗi server" });
+    if (results.length === 0) {
+      return res.status(401).json({ error: "Email hoặc mật khẩu sai" });
+    }
+
+    const user = results[0];
+    const token = sign(
+      { id: user.id, email: user.email, name: user.name },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    res.json({ message: "Đăng nhập thành công ✅", token });
+  });
+});
