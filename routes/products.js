@@ -6,11 +6,14 @@ import verifyToken from "../middleware/verifyToken.js";
 // [GET] /products - Lấy danh sách tất cả sản phẩm
 router.get("/", (req, res) => {
   db.query("SELECT * FROM products", (err, results) => {
-    if (err) return res.status(500).json({ error: "Lỗi DB" });
+    if (err) {
+      console.error("❌ DB ERROR:", err);
+      return res.status(500).json({ error: "Lỗi DB" });
+    }
+
     res.json(results);
   });
 });
-
 
 // [GET] /products/:id - Chi tiết sản phẩm
 router.get("/:id", (req, res) => {

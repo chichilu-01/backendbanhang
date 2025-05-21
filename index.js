@@ -36,3 +36,4 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server chạy tại cổng ${PORT}`));
+app.get("/health", (_req, res) => res.send("✅ API OK"));
