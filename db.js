@@ -4,7 +4,7 @@ dotenv.config();
 
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT), // ✅ ép kiểu để tránh lỗi
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
@@ -18,7 +18,7 @@ db.connect((err) => {
   }
 });
 
-// ✅ Cho phép dùng query ở các file khác
+// ✅ Cho phép import { query } từ file khác
 export const query = (...args) => db.query(...args);
 
 export default db;
