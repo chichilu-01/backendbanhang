@@ -16,7 +16,13 @@ dotenv.config(); // load biến môi trường từ .env
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "https://frontendbanhang.vercel.app", // 👈 domain của frontend
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 
 app.get("/", (_req, res) => res.send("🟢 Backend đang chạy trên Replit!"));
