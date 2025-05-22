@@ -11,6 +11,7 @@ import cartRoutes from "./routes/cart.js";
 import reviewRoutes from "./routes/reviews.js";
 import authRoutes from "./routes/auth.js"; // ✅ mới thêm
 import "./db.js"; // mở kết nối MySQL
+import uploadRoutes from "./routes/upload.js";
 
 dotenv.config(); // load biến môi trường từ .env
 
@@ -24,6 +25,14 @@ app.use(
 );
 
 app.use(express.json());
+// Cho phép truy cập file ảnh/video trong thư mục uploads/
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (_req, res) => res.send("🟢 Backend đang chạy trên Replit!"));
 
@@ -38,6 +47,7 @@ app.use("/protected", protectedRoutes);
 app.use("/admin", adminRoutes);
 app.use("/cart", cartRoutes);
 app.use("/reviews", reviewRoutes);
+app.use("/api/upload", uploadRoutes);
 
 // ✅ Route kiểm tra hệ thống
 app.get("/health", (_req, res) => res.send("✅ API OK"));
