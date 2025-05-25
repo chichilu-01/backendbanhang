@@ -2,6 +2,7 @@ import { Router } from "express";
 const router = Router();
 import db from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
+import isAdmin from "../middleware/isAdmin.js"; // nhớ import middleware phân quyền
 
 // [GET] /products - Lấy danh sách tất cả sản phẩm
 router.get("/", (req, res) => {
@@ -61,7 +62,6 @@ router.delete("/:id", verifyToken, (req, res) => {
     res.json({ message: "🗑️ Đã xoá sản phẩm" });
   });
 });
-import isAdmin from "../middleware/isAdmin.js"; // nhớ import middleware phân quyền
 
 // [POST] /products - Thêm sản phẩm mới
 router.post("/", verifyToken, isAdmin, (req, res) => {
