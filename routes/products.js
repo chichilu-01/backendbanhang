@@ -25,6 +25,22 @@ router.get("/:id", (req, res) => {
   );
 });
 
+// [GET] /products/:id/media - Lấy media theo sản phẩm
+router.get("/:id/media", (req, res) => {
+  const productId = req.params.id;
+  db.query(
+    "SELECT * FROM product_media WHERE product_id = ?",
+    [productId],
+    (err, results) => {
+      if (err) {
+        console.error("Lỗi DB khi lấy media:", err);
+        return res.status(500).json({ error: "Lỗi khi lấy media" });
+      }
+      res.json(results);
+    },
+  );
+});
+
 // [PUT] /products/:id - Sửa sản phẩm
 router.put("/:id", verifyToken, (req, res) => {
   const { name, description, price, stock, image_url } = req.body;
@@ -45,4 +61,5 @@ router.delete("/:id", verifyToken, (req, res) => {
     res.json({ message: "🗑️ Đã xoá sản phẩm" });
   });
 });
+
 export default router;
