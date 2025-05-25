@@ -61,5 +61,30 @@ router.delete("/:id", verifyToken, (req, res) => {
     res.json({ message: "🗑️ Đã xoá sản phẩm" });
   });
 });
+import isAdmin from "../middleware/isAdmin.js"; // nhớ import middleware phân quyền
+
+// [POST] /products - Thêm sản phẩm mới
+router.post("/", verifyToken, isAdmin, (req, res) => {
+  console.log("📥 Nhận yêu cầu thêm sản phẩm từ:", req.user);
+
+  const { name, price, description } = req.body;
+
+  if (!name || !price) {
+    return res.status(400).json({ error: "Thiếu tên hoặc giá sản phẩm" });
+  }
+
+  db.query(
+    "INSERT INTO products (name, price, description) VALUES (?, ?, ?)",
+    [name, price, description],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Lỗi khi thêm sản phẩm:", err);
+        return res.status(500).json({ error: "Lỗi khi thêm sản phẩm" });
+      }
+
+      res.json({ message: "✅ Đã thêm sản phẩm", productId: result.insertId });
+    },
+  );
+});
 
 export default router;
