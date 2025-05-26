@@ -4,7 +4,7 @@ import db from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
 import isAdmin from "../middleware/isAdmin.js"; // nhớ import middleware phân quyền
 
-// [POST] /products - Thêm sản phẩm mới (PHẢI đặt trước /:id)
+// [POST] /products - Thêm sản phẩm mới
 router.post("/", verifyToken, isAdmin, (req, res) => {
   console.log("📥 Nhận yêu cầu thêm sản phẩm từ:", req.user);
 
@@ -36,18 +36,30 @@ router.get("/", (_req, res) => {
   });
 });
 
-// [GET] /products/:id - Chi tiết sản phẩm
+// ✅ [GET] /products/:id - Chi tiết sản phẩm kèm ảnh chính
 router.get("/:id", (req, res) => {
-  db.query(
-    "SELECT * FROM products WHERE id = ?",
-    [req.params.id],
-    (err, results) => {
-      if (err) return res.status(500).json({ error: "Lỗi DB" });
-      if (results.length === 0)
-        return res.status(404).json({ error: "Không tìm thấy" });
-      res.json(results[0]);
-    },
-  );
+  const productId = req.params.id;
+
+  const sql = `
+    SELECT 
+      p.*, 
+      m.url AS main_image
+    FROM products p
+    LEFT JOIN product_media m 
+      ON p.id = m.product_id AND m.is_main = true
+    WHERE p.id = ?
+  `;
+
+  db.query(sql, [productId], (err, results) => {
+    if (err) {
+      console.error("❌ Lỗi DB:", err);
+      return res.status(500).json({ error: "Lỗi DB" });
+    }
+    if (results.length === 0)
+      return res.status(404).json({ error: "Không tìm thấy" });
+
+    res.json(results[0]);
+  });
 });
 
 // [GET] /products/:id/media - Lấy media theo sản phẩm

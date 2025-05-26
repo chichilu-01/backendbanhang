@@ -30,7 +30,7 @@ const upload = multer({ storage });
  * POST /api/upload
  * Upload 1 file (ảnh hoặc video) cho sản phẩm
  */
-router.post("/", upload.single("file"), (req, res) => {
+router.post("/upload", upload.single("file"), (req, res) => {
   const { product_id } = req.body;
   const file = req.file;
 
@@ -52,7 +52,7 @@ router.post("/", upload.single("file"), (req, res) => {
         return res.status(500).json({ error: "Lỗi kiểm tra DB" });
       }
 
-      const is_main = result[0].count === 0; // Ảnh đầu tiên sẽ là ảnh chính
+      const is_main = result[0].count === 0;
 
       db.query(
         "INSERT INTO product_media (product_id, type, url, public_id, is_main) VALUES (?, ?, ?, ?, ?)",
@@ -72,7 +72,6 @@ router.post("/", upload.single("file"), (req, res) => {
 
 /**
  * DELETE /api/upload/:id
- * Xoá media khỏi Cloudinary + DB
  */
 router.delete("/:id", (req, res) => {
   const mediaId = req.params.id;
@@ -114,7 +113,6 @@ router.delete("/:id", (req, res) => {
 
 /**
  * GET /api/products/:id/media
- * Lấy danh sách ảnh/video theo sản phẩm
  */
 router.get("/products/:id/media", (req, res) => {
   const { id } = req.params;
@@ -134,7 +132,6 @@ router.get("/products/:id/media", (req, res) => {
 
 /**
  * PATCH /api/upload/:id/set-main
- * Đặt media là ảnh chính
  */
 router.patch("/:id/set-main", (req, res) => {
   const mediaId = req.params.id;
