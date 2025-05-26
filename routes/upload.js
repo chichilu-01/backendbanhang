@@ -100,4 +100,24 @@ router.delete("/:id", (req, res) => {
   );
 });
 
+/**
+ * GET /api/products/:id/media
+ * Lấy danh sách ảnh/video theo sản phẩm
+ */
+router.get("/products/:id/media", (req, res) => {
+  const { id } = req.params;
+
+  db.query(
+    "SELECT * FROM product_media WHERE product_id = ? ORDER BY uploaded_at DESC",
+    [id],
+    (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Lỗi truy vấn media" });
+      }
+      res.json(results);
+    },
+  );
+});
+
 export default router;

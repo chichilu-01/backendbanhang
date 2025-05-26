@@ -47,7 +47,7 @@ app.use("/protected", protectedRoutes);
 app.use("/admin", adminRoutes);
 app.use("/cart", cartRoutes);
 app.use("/reviews", reviewRoutes);
-app.use("/api/upload", uploadRoutes);
+app.use("/api", uploadRoutes); // ✅ gắn trực tiếp vào /api
 
 // ✅ Route kiểm tra hệ thống
 app.get("/health", (_req, res) => res.send("✅ API OK"));
