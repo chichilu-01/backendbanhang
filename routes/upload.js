@@ -73,7 +73,7 @@ router.post("/upload", upload.single("file"), (req, res) => {
 /**
  * DELETE /api/upload/:id
  */
-router.delete("/upload/:id", (req, res) => {
+router.delete("/:id", (req, res) => {
   const mediaId = req.params.id;
 
   db.query(
@@ -87,24 +87,37 @@ router.delete("/upload/:id", (req, res) => {
 
       const publicId = results[0].public_id;
 
+      // ✅ Nếu public_id là NULL thì bỏ qua xoá Cloudinary, chỉ xoá DB
+      const deleteFromDb = () => {
+        db.query(
+          "DELETE FROM product_media WHERE id = ?",
+          [mediaId],
+          (err2) => {
+            if (err2) {
+              console.error(err2);
+              return res.status(500).json({ error: "Lỗi xóa DB" });
+            }
+
+            res.json({ message: "Đã xoá thành công" });
+          },
+        );
+      };
+
+      if (!publicId) {
+        // ❌ Không có public_id (vì bạn chưa lưu Cloudinary), chỉ xoá DB
+        return deleteFromDb();
+      }
+
       cloudinary.uploader.destroy(
         publicId,
         { resource_type: "auto" },
         (error) => {
-          if (error) console.error("Lỗi xoá Cloudinary:", error);
+          if (error) {
+            console.error("Lỗi xoá Cloudinary:", error);
+            return res.status(500).json({ error: "Lỗi xoá Cloudinary" });
+          }
 
-          db.query(
-            "DELETE FROM product_media WHERE id = ?",
-            [mediaId],
-            (err2) => {
-              if (err2) {
-                console.error(err2);
-                return res.status(500).json({ error: "Lỗi xóa DB" });
-              }
-
-              res.json({ message: "Đã xoá thành công" });
-            },
-          );
+          deleteFromDb();
         },
       );
     },
