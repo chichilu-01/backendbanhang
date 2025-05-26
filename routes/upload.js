@@ -73,7 +73,7 @@ router.post("/upload", upload.single("file"), (req, res) => {
 /**
  * DELETE /api/upload/:id
  */
-router.delete("/:id", (req, res) => {
+router.delete("/upload/:id", (req, res) => {
   const mediaId = req.params.id;
 
   db.query(
