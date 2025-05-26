@@ -1,16 +1,43 @@
 import { Router } from "express";
-const router = Router();
 import db from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
-import isAdmin from "../middleware/isAdmin.js"; // nhớ import middleware phân quyền
+import isAdmin from "../middleware/isAdmin.js";
 
-// [POST] /products - Thêm sản phẩm mới
+const router = Router();
+
+/**
+ * @route   GET /products
+ * @desc    Lấy danh sách sản phẩm kèm URL ảnh chính (nếu có)
+ * @access  Public
+ */
+router.get("/", (req, res) => {
+  const sql = `
+    SELECT 
+      p.*,
+      m.url AS main_image
+    FROM products p
+    LEFT JOIN product_media m
+      ON p.id = m.product_id
+      AND m.is_main = true
+    ORDER BY p.id DESC
+  `;
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("❌ [GET /products] Lỗi DB:", err);
+      return res.status(500).json({ error: "Lỗi khi truy vấn danh sách sản phẩm" });
+    }
+    res.json(rows);
+  });
+});
+
+/**
+ * @route   POST /products
+ * @desc    Thêm sản phẩm mới
+ * @access  Admin
+ */
 router.post("/", verifyToken, isAdmin, (req, res) => {
-  console.log("📥 Nhận yêu cầu thêm sản phẩm từ:", req.user);
-
   const { name, price, description } = req.body;
-
-  if (!name || !price) {
+  if (!name || price == null) {
     return res.status(400).json({ error: "Thiếu tên hoặc giá sản phẩm" });
   }
 
@@ -19,84 +46,111 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
     [name, price, description],
     (err, result) => {
       if (err) {
-        console.error("❌ Lỗi khi thêm sản phẩm:", err);
-        return res.status(500).json({ error: "Lỗi khi thêm sản phẩm" });
+        console.error("❌ [POST /products] Lỗi thêm:", err);
+        return res.status(500).json({ error: "Không thể thêm sản phẩm" });
       }
-
-      res.json({ message: "✅ Đã thêm sản phẩm", productId: result.insertId });
-    },
+      res.status(201).json({
+        message: "Đã tạo sản phẩm",
+        productId: result.insertId,
+      });
+    }
   );
 });
 
-// [GET] /products - Lấy danh sách tất cả sản phẩm
-router.get("/", (_req, res) => {
-  db.query("SELECT * FROM products", (err, results) => {
-    if (err) return res.status(500).json({ error: "Lỗi DB" });
-    res.json(results);
-  });
-});
-
-// ✅ [GET] /products/:id - Chi tiết sản phẩm kèm ảnh chính
+/**
+ * @route   GET /products/:id
+ * @desc    Lấy chi tiết 1 sản phẩm (kèm ảnh chính)
+ * @access  Public
+ */
 router.get("/:id", (req, res) => {
-  const productId = req.params.id;
-
+  const { id } = req.params;
   const sql = `
-    SELECT 
-      p.*, 
+    SELECT
+      p.*,
       m.url AS main_image
     FROM products p
-    LEFT JOIN product_media m 
-      ON p.id = m.product_id AND m.is_main = true
+    LEFT JOIN product_media m
+      ON p.id = m.product_id
+      AND m.is_main = true
     WHERE p.id = ?
   `;
-
-  db.query(sql, [productId], (err, results) => {
+  db.query(sql, [id], (err, rows) => {
     if (err) {
-      console.error("❌ Lỗi DB:", err);
-      return res.status(500).json({ error: "Lỗi DB" });
+      console.error(`❌ [GET /products/${id}] Lỗi DB:`, err);
+      return res.status(500).json({ error: "Lỗi khi truy vấn sản phẩm" });
     }
-    if (results.length === 0)
-      return res.status(404).json({ error: "Không tìm thấy" });
-
-    res.json(results[0]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+    }
+    res.json(rows[0]);
   });
 });
 
-// [GET] /products/:id/media - Lấy media theo sản phẩm
-router.get("/:id/media", (req, res) => {
-  const productId = req.params.id;
+/**
+ * @route   PUT /products/:id
+ * @desc    Cập nhật sản phẩm
+ * @access  Admin
+ */
+router.put("/:id", verifyToken, isAdmin, (req, res) => {
+  const { id } = req.params;
+  const { name, description, price } = req.body;
+  if (!name || price == null) {
+    return res.status(400).json({ error: "Thiếu tên hoặc giá sản phẩm" });
+  }
+
   db.query(
-    "SELECT * FROM product_media WHERE product_id = ?",
-    [productId],
-    (err, results) => {
+    "UPDATE products SET name=?, description=?, price=? WHERE id=?",
+    [name, description, price, id],
+    (err, result) => {
       if (err) {
-        console.error("Lỗi DB khi lấy media:", err);
-        return res.status(500).json({ error: "Lỗi khi lấy media" });
+        console.error(`❌ [PUT /products/${id}] Lỗi DB:`, err);
+        return res.status(500).json({ error: "Không thể cập nhật sản phẩm" });
       }
-      res.json(results);
-    },
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+      }
+      res.json({ message: "Đã cập nhật sản phẩm" });
+    }
   );
 });
 
-// [PUT] /products/:id - Sửa sản phẩm
-router.put("/:id", verifyToken, (req, res) => {
-  const { name, description, price, stock, image_url } = req.body;
-  db.query(
-    "UPDATE products SET name=?, description=?, price=?, stock=?, image_url=? WHERE id=?",
-    [name, description, price, stock, image_url, req.params.id],
-    (err) => {
-      if (err) return res.status(500).json({ error: "Không sửa được" });
-      res.json({ message: "✅ Sửa thành công" });
-    },
-  );
-});
-
-// [DELETE] /products/:id - Xoá sản phẩm
-router.delete("/:id", verifyToken, (req, res) => {
-  db.query("DELETE FROM products WHERE id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: "Không xoá được" });
-    res.json({ message: "🗑️ Đã xoá sản phẩm" });
+/**
+ * @route   DELETE /products/:id
+ * @desc    Xoá sản phẩm
+ * @access  Admin
+ */
+router.delete("/:id", verifyToken, isAdmin, (req, res) => {
+  const { id } = req.params;
+  db.query("DELETE FROM products WHERE id = ?", [id], (err, result) => {
+    if (err) {
+      console.error(`❌ [DELETE /products/${id}] Lỗi DB:`, err);
+      return res.status(500).json({ error: "Không thể xoá sản phẩm" });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+    }
+    res.json({ message: "Đã xoá sản phẩm" });
   });
+});
+
+/**
+ * @route   GET /products/:id/media
+ * @desc    Lấy danh sách ảnh/video của sản phẩm
+ * @access  Public
+ */
+router.get("/:id/media", (req, res) => {
+  const { id } = req.params;
+  db.query(
+    "SELECT id, type, url, is_main, uploaded_at FROM product_media WHERE product_id = ? ORDER BY uploaded_at DESC",
+    [id],
+    (err, rows) => {
+      if (err) {
+        console.error(`❌ [GET /products/${id}/media] Lỗi DB:`, err);
+        return res.status(500).json({ error: "Không lấy được media" });
+      }
+      res.json(rows);
+    }
+  );
 });
 
 export default router;
