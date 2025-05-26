@@ -8,7 +8,7 @@ const router = express.Router();
 
 // Cấu hình lưu file
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (_req, file, cb) => {
     const isVideo = file.mimetype.startsWith("video/");
     const folder = isVideo ? "uploads/videos" : "uploads/images";
     fs.mkdirSync(folder, { recursive: true }); // tạo thư mục nếu chưa có
