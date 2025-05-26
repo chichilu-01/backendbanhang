@@ -29,7 +29,7 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
 });
 
 // [GET] /products - Lấy danh sách tất cả sản phẩm
-router.get("/", (req, res) => {
+router.get("/", (_req, res) => {
   db.query("SELECT * FROM products", (err, results) => {
     if (err) return res.status(500).json({ error: "Lỗi DB" });
     res.json(results);
