@@ -1,22 +1,26 @@
 import express from "express";
 import multer from "multer";
-import path from "path";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import db from "../db.js";
-import fs from "fs";
+import dotenv from "dotenv";
+dotenv.config();
 
 const router = express.Router();
 
-// Cấu hình lưu file
-const storage = multer.diskStorage({
-  destination: (_req, file, cb) => {
-    const isVideo = file.mimetype.startsWith("video/");
-    const folder = isVideo ? "uploads/videos" : "uploads/images";
-    fs.mkdirSync(folder, { recursive: true }); // tạo thư mục nếu chưa có
-    cb(null, folder);
-  },
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext);
+// ⚙️ Cấu hình Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// 📁 Cấu hình lưu trữ vào Cloudinary
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "products", // thư mục trên Cloudinary
+    resource_type: "auto", // cho phép ảnh và video
   },
 });
 
@@ -24,7 +28,7 @@ const upload = multer({ storage });
 
 /**
  * POST /api/upload
- * Upload 1 file (ảnh hoặc video) cho product
+ * Upload 1 file (ảnh hoặc video) cho sản phẩm
  */
 router.post("/", upload.single("file"), (req, res) => {
   const { product_id } = req.body;
@@ -35,12 +39,13 @@ router.post("/", upload.single("file"), (req, res) => {
   }
 
   const type = file.mimetype.startsWith("video/") ? "video" : "image";
-  const url = `/uploads/${type}s/${file.filename}`;
+  const url = file.path; // Cloudinary URL
+  const public_id = file.filename; // để dùng khi xoá
 
   db.query(
-    "INSERT INTO product_media (product_id, type, url) VALUES (?, ?, ?)",
-    [product_id, type, url],
-    (err, _result) => {
+    "INSERT INTO product_media (product_id, type, url, public_id) VALUES (?, ?, ?, ?)",
+    [product_id, type, url, public_id],
+    (err) => {
       if (err) {
         console.error(err);
         return res.status(500).json({ error: "Lỗi lưu DB" });
@@ -53,14 +58,13 @@ router.post("/", upload.single("file"), (req, res) => {
 
 /**
  * DELETE /api/upload/:id
- * Xóa media theo ID (file + DB)
+ * Xoá media khỏi Cloudinary + DB
  */
 router.delete("/:id", (req, res) => {
   const mediaId = req.params.id;
 
-  // 1. Lấy URL file từ DB
   db.query(
-    "SELECT url FROM product_media WHERE id = ?",
+    "SELECT public_id FROM product_media WHERE id = ?",
     [mediaId],
     (err, results) => {
       if (err) {
@@ -69,33 +73,35 @@ router.delete("/:id", (req, res) => {
       }
 
       if (results.length === 0) {
-        return res.status(404).json({ error: "Media không tồn tại" });
+        return res.status(404).json({ error: "Không tìm thấy media" });
       }
 
-      const fileUrl = results[0].url; // VD: "/uploads/images/abc.jpg"
-      const filePath = path.join(process.cwd(), fileUrl);
+      const publicId = results[0].public_id;
 
-      // 2. Xóa file khỏi thư mục
-      fs.unlink(filePath, (unlinkErr) => {
-        if (unlinkErr) {
-          console.error("⚠️ Không thể xóa file, có thể đã bị xoá:", unlinkErr);
-          // Tiếp tục xóa trong DB
-        }
+      // Xoá ảnh/video khỏi Cloudinary
+      cloudinary.uploader.destroy(
+        publicId,
+        { resource_type: "auto" },
+        (error) => {
+          if (error) {
+            console.error("Lỗi xoá Cloudinary:", error);
+          }
 
-        // 3. Xóa bản ghi DB
-        db.query(
-          "DELETE FROM product_media WHERE id = ?",
-          [mediaId],
-          (err2, _result) => {
-            if (err2) {
-              console.error(err2);
-              return res.status(500).json({ error: "Lỗi xóa DB" });
-            }
+          // Xoá bản ghi trong DB
+          db.query(
+            "DELETE FROM product_media WHERE id = ?",
+            [mediaId],
+            (err2) => {
+              if (err2) {
+                console.error(err2);
+                return res.status(500).json({ error: "Lỗi xóa DB" });
+              }
 
-            res.json({ message: "Đã xoá thành công" });
-          },
-        );
-      });
+              res.json({ message: "Đã xoá thành công" });
+            },
+          );
+        },
+      );
     },
   );
 });
