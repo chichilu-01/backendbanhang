@@ -19,8 +19,8 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary,
   params: {
-    folder: "products", // thư mục trên Cloudinary
-    resource_type: "auto", // cho phép ảnh và video
+    folder: "products",
+    resource_type: "auto",
   },
 });
 
@@ -39,19 +39,33 @@ router.post("/", upload.single("file"), (req, res) => {
   }
 
   const type = file.mimetype.startsWith("video/") ? "video" : "image";
-  const url = file.path; // Cloudinary URL
-  const public_id = file.filename; // để dùng khi xoá
+  const url = file.path;
+  const public_id = file.filename;
 
+  // Kiểm tra số lượng media hiện có của sản phẩm
   db.query(
-    "INSERT INTO product_media (product_id, type, url, public_id) VALUES (?, ?, ?, ?)",
-    [product_id, type, url, public_id],
-    (err) => {
+    "SELECT COUNT(*) AS count FROM product_media WHERE product_id = ?",
+    [product_id],
+    (err, result) => {
       if (err) {
         console.error(err);
-        return res.status(500).json({ error: "Lỗi lưu DB" });
+        return res.status(500).json({ error: "Lỗi kiểm tra DB" });
       }
 
-      res.json({ message: "Upload thành công", url });
+      const is_main = result[0].count === 0; // Ảnh đầu tiên sẽ là ảnh chính
+
+      db.query(
+        "INSERT INTO product_media (product_id, type, url, public_id, is_main) VALUES (?, ?, ?, ?, ?)",
+        [product_id, type, url, public_id, is_main],
+        (err2) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Lỗi lưu DB" });
+          }
+
+          res.json({ message: "Upload thành công", url });
+        },
+      );
     },
   );
 });
@@ -67,27 +81,19 @@ router.delete("/:id", (req, res) => {
     "SELECT public_id FROM product_media WHERE id = ?",
     [mediaId],
     (err, results) => {
-      if (err) {
+      if (err || results.length === 0) {
         console.error(err);
-        return res.status(500).json({ error: "Lỗi truy vấn DB" });
-      }
-
-      if (results.length === 0) {
         return res.status(404).json({ error: "Không tìm thấy media" });
       }
 
       const publicId = results[0].public_id;
 
-      // Xoá ảnh/video khỏi Cloudinary
       cloudinary.uploader.destroy(
         publicId,
         { resource_type: "auto" },
         (error) => {
-          if (error) {
-            console.error("Lỗi xoá Cloudinary:", error);
-          }
+          if (error) console.error("Lỗi xoá Cloudinary:", error);
 
-          // Xoá bản ghi trong DB
           db.query(
             "DELETE FROM product_media WHERE id = ?",
             [mediaId],
@@ -122,6 +128,50 @@ router.get("/products/:id/media", (req, res) => {
         return res.status(500).json({ error: "Lỗi truy vấn media" });
       }
       res.json(results);
+    },
+  );
+});
+
+/**
+ * PATCH /api/upload/:id/set-main
+ * Đặt media là ảnh chính
+ */
+router.patch("/:id/set-main", (req, res) => {
+  const mediaId = req.params.id;
+
+  db.query(
+    "SELECT product_id FROM product_media WHERE id = ?",
+    [mediaId],
+    (err, results) => {
+      if (err || results.length === 0) {
+        return res.status(404).json({ error: "Không tìm thấy media" });
+      }
+
+      const productId = results[0].product_id;
+
+      db.query(
+        "UPDATE product_media SET is_main = false WHERE product_id = ?",
+        [productId],
+        (err2) => {
+          if (err2) {
+            console.error(err2);
+            return res.status(500).json({ error: "Lỗi cập nhật media" });
+          }
+
+          db.query(
+            "UPDATE product_media SET is_main = true WHERE id = ?",
+            [mediaId],
+            (err3) => {
+              if (err3) {
+                console.error(err3);
+                return res.status(500).json({ error: "Lỗi đặt ảnh chính" });
+              }
+
+              res.json({ message: "✅ Đã đặt ảnh chính" });
+            },
+          );
+        },
+      );
     },
   );
 });
