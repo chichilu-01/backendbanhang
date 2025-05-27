@@ -24,7 +24,9 @@ router.get("/", (req, res) => {
   db.query(sql, (err, rows) => {
     if (err) {
       console.error("❌ [GET /products] Lỗi DB:", err);
-      return res.status(500).json({ error: "Lỗi khi truy vấn danh sách sản phẩm" });
+      return res
+        .status(500)
+        .json({ error: "Lỗi khi truy vấn danh sách sản phẩm" });
     }
     res.json(rows);
   });
@@ -53,7 +55,7 @@ router.post("/", verifyToken, isAdmin, (req, res) => {
         message: "Đã tạo sản phẩm",
         productId: result.insertId,
       });
-    }
+    },
   );
 });
 
@@ -110,7 +112,7 @@ router.put("/:id", verifyToken, isAdmin, (req, res) => {
         return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
       }
       res.json({ message: "Đã cập nhật sản phẩm" });
-    }
+    },
   );
 });
 
@@ -149,8 +151,55 @@ router.get("/:id/media", (req, res) => {
         return res.status(500).json({ error: "Không lấy được media" });
       }
       res.json(rows);
-    }
+    },
   );
+});
+/**
+ * @route   POST /products/upload
+ * @desc    Upload media (ảnh/video) cho sản phẩm
+ * @access  Admin
+ */
+router.post("/upload", verifyToken, isAdmin, (req, res) => {
+  console.log("📥 Dữ liệu nhận:", req.body); // 👈 Ghi log dữ liệu gửi lên
+
+  const { product_id, url, type, is_main } = req.body;
+
+  if (!product_id || !url || !type) {
+    return res.status(400).json({ error: "Thiếu thông tin media" });
+  }
+
+  // Kiểm tra sản phẩm có tồn tại không
+  db.query("SELECT * FROM products WHERE id = ?", [product_id], (err, rows) => {
+    if (err) {
+      console.error("❌ [UPLOAD] Lỗi truy vấn sản phẩm:", err);
+      return res.status(500).json({ error: "Lỗi truy vấn DB" });
+    }
+
+    if (rows.length === 0) {
+      console.warn("⚠️ Không tìm thấy sản phẩm với ID:", product_id);
+      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+    }
+
+    // Thêm media
+    const insertQuery = `
+      INSERT INTO product_media (product_id, url, type, is_main)
+      VALUES (?, ?, ?, ?)
+    `;
+    db.query(
+      insertQuery,
+      [product_id, url, type, is_main || false],
+      (err, result) => {
+        if (err) {
+          console.error("❌ [UPLOAD] Lỗi thêm media:", err);
+          return res.status(500).json({ error: "Không thể thêm media" });
+        }
+
+        res
+          .status(201)
+          .json({ message: "✅ Đã upload media", mediaId: result.insertId });
+      },
+    );
+  });
 });
 
 export default router;
