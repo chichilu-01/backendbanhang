@@ -12,7 +12,7 @@ import cartRoutes from "./routes/cart.js";
 import reviewRoutes from "./routes/reviews.js";
 import authRoutes from "./routes/auth.js";
 import uploadRoutes from "./routes/upload.js"; // mới
-
+import ratingsRouter from "./routes/ratings.js";
 import "./db.js"; // kết nối MySQL
 
 dotenv.config();
@@ -25,7 +25,7 @@ app.use(
     origin: "https://frontendbanhang.vercel.app",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -45,7 +45,7 @@ app.use("/protected", protectedRoutes);
 app.use("/admin", adminRoutes);
 app.use("/cart", cartRoutes);
 app.use("/reviews", reviewRoutes);
-
+app.use("/ratings", ratingsRouter);
 // 👉 Gắn uploadRoutes **đúng** vào /api/upload
 app.use("/api/upload", uploadRoutes);
 
