@@ -13,6 +13,7 @@ import reviewRoutes from "./routes/reviews.js";
 import authRoutes from "./routes/auth.js";
 import uploadRoutes from "./routes/upload.js"; // mới
 import ratingsRouter from "./routes/ratings.js";
+import mediaRoutes from "./routes/media.js";
 import "./db.js"; // kết nối MySQL
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use("/reviews", reviewRoutes);
 app.use("/ratings", ratingsRouter);
 // 👉 Gắn uploadRoutes **đúng** vào /api/upload
 app.use("/api/upload", uploadRoutes);
+app.use("/media", mediaRoutes);
 
 // error handler
 app.use((err, _req, res, _next) => {
