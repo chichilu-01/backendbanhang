@@ -1,94 +1,64 @@
-// routes/products.js
-import { Router } from "express";
+import express from "express";
 import db from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
 import isAdmin from "../middleware/isAdmin.js";
 
-const router = Router();
+const router = express.Router();
 
-// [GET] /products - Lấy danh sách sản phẩm (kèm ảnh chính)
-router.get("/", (_req, res) => {
-  const sql = `
-    SELECT p.*, m.url AS main_image
-    FROM products p
-    LEFT JOIN product_media m ON p.id = m.product_id AND m.is_main = true
-    ORDER BY p.id DESC
-  `;
-  db.query(sql, (err, rows) => {
-    if (err) return res.status(500).json({ error: "Lỗi truy vấn sản phẩm" });
-    res.json(rows);
-  });
-});
+// Gợi ý tìm kiếm sản phẩm
+router.get("/suggest", async (req, res) => {
+  const { keyword } = req.query;
+  if (!keyword) return res.json([]);
 
-// [POST] /products - Thêm sản phẩm mới
-router.post("/", verifyToken, isAdmin, (req, res) => {
-  const { name, price, description } = req.body;
-  if (!name || price == null) {
-    return res.status(400).json({ error: "Thiếu tên hoặc giá sản phẩm" });
+  try {
+    const [rows] = await db.query(
+      "SELECT name FROM products WHERE name LIKE ? LIMIT 10",
+      [`%${keyword}%`],
+    );
+    res.json(rows.map((row) => row.name));
+  } catch (err) {
+    console.error("❌ Lỗi khi tìm gợi ý:", err);
+    res.status(500).json({ error: "Lỗi server" });
   }
-
-  db.query(
-    "INSERT INTO products (name, price, description) VALUES (?, ?, ?)",
-    [name, price, description],
-    (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Không thể thêm sản phẩm" });
-      res
-        .status(201)
-        .json({ message: "Đã tạo sản phẩm", productId: result.insertId });
-    },
-  );
 });
 
-// [GET] /products/:id - Lấy chi tiết sản phẩm (kèm ảnh chính)
-router.get("/:id", (req, res) => {
-  const { id } = req.params;
-  const sql = `
-    SELECT p.*, m.url AS main_image
-    FROM products p
-    LEFT JOIN product_media m ON p.id = m.product_id AND m.is_main = true
-    WHERE p.id = ?
-  `;
-  db.query(sql, [id], (err, rows) => {
-    if (err) return res.status(500).json({ error: "Lỗi truy vấn sản phẩm" });
-    if (rows.length === 0)
-      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
-    res.json(rows[0]);
-  });
-});
+// 🔒 Lưu bộ lọc yêu thích (POST /products/filters/save)
+router.post("/filters/save", verifyToken, async (req, res) => {
+  const { user_id } = req.user;
+  const { name, filter } = req.body;
+  if (!name || !filter)
+    return res.status(400).json({ error: "Thiếu tên hoặc dữ liệu bộ lọc" });
 
-// [PUT] /products/:id - Cập nhật sản phẩm
-router.put("/:id", verifyToken, isAdmin, (req, res) => {
-  const { id } = req.params;
-  const { name, description, price } = req.body;
-  if (!name || price == null) {
-    return res.status(400).json({ error: "Thiếu tên hoặc giá sản phẩm" });
+  try {
+    await db.query(
+      "INSERT INTO favorite_filters (user_id, name, filter_data) VALUES (?, ?, ?)",
+      [user_id, name, JSON.stringify(filter)],
+    );
+    res.status(201).json({ message: "Đã lưu bộ lọc" });
+  } catch (err) {
+    console.error("❌ Lỗi lưu bộ lọc:", err);
+    res.status(500).json({ error: "Không thể lưu bộ lọc" });
   }
-
-  db.query(
-    "UPDATE products SET name=?, description=?, price=? WHERE id=?",
-    [name, description, price, id],
-    (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Không thể cập nhật sản phẩm" });
-      if (result.affectedRows === 0) {
-        return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
-      }
-      res.json({ message: "Đã cập nhật sản phẩm" });
-    },
-  );
 });
 
-// [DELETE] /products/:id - Xoá sản phẩm
-router.delete("/:id", verifyToken, isAdmin, (req, res) => {
-  const { id } = req.params;
-  db.query("DELETE FROM products WHERE id = ?", [id], (err, result) => {
-    if (err) return res.status(500).json({ error: "Không thể xoá sản phẩm" });
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
-    }
-    res.json({ message: "Đã xoá sản phẩm" });
-  });
+// 🔒 Lấy các bộ lọc đã lưu (GET /products/filters)
+router.get("/filters", verifyToken, async (req, res) => {
+  const { user_id } = req.user;
+  try {
+    const [rows] = await db.query(
+      "SELECT id, name, filter_data FROM favorite_filters WHERE user_id = ? ORDER BY id DESC",
+      [user_id],
+    );
+    const filters = rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      filter: JSON.parse(row.filter_data),
+    }));
+    res.json(filters);
+  } catch (err) {
+    console.error("❌ Lỗi lấy bộ lọc đã lưu:", err);
+    res.status(500).json({ error: "Không thể lấy danh sách bộ lọc" });
+  }
 });
 
 export default router;
