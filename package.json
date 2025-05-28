@@ -27,6 +27,7 @@
     "nodemailer": "^7.0.3"
   },
   "devDependencies": {
+    "eslint-plugin-promise": "^7.2.1",
     "nodemon": "^3.1.10"
   }
 }

@@ -5,7 +5,7 @@ import isAdmin from "../middleware/isAdmin.js";
 
 const router = express.Router();
 
-// Gợi ý tìm kiếm sản phẩm
+// 🔍 Gợi ý tìm kiếm sản phẩm
 router.get("/suggest", async (req, res) => {
   const { keyword } = req.query;
   if (!keyword) return res.json([]);
