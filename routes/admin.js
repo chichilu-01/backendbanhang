@@ -37,18 +37,3 @@ router.put("/orders/:id/status", verifyToken, isAdmin, (req, res) => {
 });
 
 export default router;
-
-/*
-📌 (Tuỳ chọn) Gán quyền admin cho 1 tài khoản:
-Vào DBeaver hoặc bất kỳ công cụ SQL client nào và chạy lệnh sau:
-
-INSERT INTO users (name, email, password, role)
-VALUES (
-  'Admin Phuong',
-  'hoangminhphuong270401@gmail.com',
-  '$2b$10$qsmF4yHsoElghZ6T5SpGdu1qys3liDffcfqf7O.bZ1qkZy9oMeSxS',
-  'admin'
-);
-
--- Mật khẩu ở trên tương ứng với: 01216419493
-*/
