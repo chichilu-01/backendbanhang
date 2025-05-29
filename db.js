@@ -1,9 +1,9 @@
 // db.js
-import mysql from "mysql2/promise"; // ✅ Dùng phiên bản Promise
+import mysql from "mysql2/promise"; // ✅ Dùng bản Promise
 import dotenv from "dotenv";
 dotenv.config();
 
-// ✅ Tạo pool để kết nối ổn định hơn
+// ✅ Tạo pool kết nối tự động
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -11,15 +11,18 @@ const db = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
 });
-db.connect((err) => {
-  if (err) {
-    console.error("❌ Kết nối DB thất bại:", err);
-  } else {
-    console.log("✅ Đã kết nối MySQL database.");
-  }
-});
 
-// ✅ Cho phép import { query } từ file khác
-export const query = (...args) => db.query(...args);
+// ✅ Nếu cần kiểm tra kết nối DB (optional)
+try {
+  const conn = await db.getConnection();
+  console.log("✅ Đã kết nối MySQL database.");
+  conn.release();
+} catch (err) {
+  console.error("❌ Kết nối DB thất bại:", err);
+}
+export const query = async (...args) => {
+  const [rows] = await db.query(...args);
+  return rows;
+};
 
 export default db;
