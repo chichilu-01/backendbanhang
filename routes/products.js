@@ -13,10 +13,11 @@ router.get("/", async (_req, res) => {
     const [rows] = await db.query("SELECT * FROM products ORDER BY id DESC");
     res.json(rows);
   } catch (err) {
-    console.error("❌ Lỗi lấy danh sách sản phẩm:", err);
+    console.error("❌ Lỗi khi truy vấn sản phẩm:", err); // 👉 In lỗi chi tiết
     res.status(500).json({ error: "Không thể lấy danh sách sản phẩm" });
   }
 });
+
 
 //
 // 🔍 GỢI Ý TÌM KIẾM SẢN PHẨM
