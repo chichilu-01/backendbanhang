@@ -18,7 +18,6 @@ router.get("/", async (_req, res) => {
   }
 });
 
-
 //
 // 🔍 GỢI Ý TÌM KIẾM SẢN PHẨM
 // GET /api/products/suggest?keyword=ao
@@ -87,6 +86,26 @@ router.get("/filters", verifyToken, async (req, res) => {
   } catch (err) {
     console.error("❌ Lỗi lấy bộ lọc đã lưu:", err);
     res.status(500).json({ error: "Không thể lấy danh sách bộ lọc" });
+  }
+});
+//
+// 📦 LẤY CHI TIẾT SẢN PHẨM THEO ID
+// GET /api/products/:id
+//
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [rows] = await db.query("SELECT * FROM products WHERE id = ?", [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy chi tiết sản phẩm:", err);
+    res.status(500).json({ error: "Lỗi server" });
   }
 });
 
