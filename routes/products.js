@@ -1,5 +1,5 @@
 import express from "express";
-import db from "../db.js";
+import { query } from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
@@ -10,10 +10,10 @@ const router = express.Router();
 //
 router.get("/", async (_req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM products ORDER BY id DESC");
+    const rows = await query("SELECT * FROM products ORDER BY id DESC");
     res.json(rows);
   } catch (err) {
-    console.error("❌ Lỗi khi truy vấn sản phẩm:", err); // 👉 In lỗi chi tiết
+    console.error("❌ Lỗi khi truy vấn sản phẩm:", err);
     res.status(500).json({ error: "Không thể lấy danh sách sản phẩm" });
   }
 });
@@ -27,7 +27,7 @@ router.get("/suggest", async (req, res) => {
   if (!keyword) return res.json([]);
 
   try {
-    const [rows] = await db.query(
+    const rows = await query(
       "SELECT name FROM products WHERE name LIKE ? LIMIT 10",
       [`%${keyword}%`],
     );
@@ -52,7 +52,7 @@ router.post("/filters/save", verifyToken, async (req, res) => {
   }
 
   try {
-    await db.query(
+    await query(
       "INSERT INTO favorite_filters (user_id, name, filter_data) VALUES (?, ?, ?)",
       [user_id, name, JSON.stringify(filter)],
     );
@@ -71,7 +71,7 @@ router.get("/filters", verifyToken, async (req, res) => {
   const { user_id } = req.user;
 
   try {
-    const [rows] = await db.query(
+    const rows = await query(
       "SELECT id, name, filter_data FROM favorite_filters WHERE user_id = ? ORDER BY id DESC",
       [user_id],
     );
@@ -88,6 +88,7 @@ router.get("/filters", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Không thể lấy danh sách bộ lọc" });
   }
 });
+
 //
 // 📦 LẤY CHI TIẾT SẢN PHẨM THEO ID
 // GET /api/products/:id
@@ -96,7 +97,7 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [rows] = await db.query("SELECT * FROM products WHERE id = ?", [id]);
+    const rows = await query("SELECT * FROM products WHERE id = ?", [id]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "Không tìm thấy sản phẩm" });

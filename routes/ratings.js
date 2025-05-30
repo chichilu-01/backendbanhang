@@ -1,5 +1,5 @@
 import { Router } from "express";
-import db from "../db.js";
+import { query } from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
 
 const router = Router();
@@ -7,11 +7,10 @@ const router = Router();
 /**
  * [POST] /ratings - Gửi đánh giá mới hoặc cập nhật nếu đã đánh giá
  */
-router.post("/", verifyToken, (req, res) => {
+router.post("/", verifyToken, async (req, res) => {
   const { product_id, rating, comment } = req.body;
   const user_id = req.user.id;
 
-  // Kiểm tra dữ liệu đầu vào
   if (!product_id || !rating || rating < 1 || rating > 5) {
     return res.status(400).json({ error: "Thiếu hoặc sai thông tin đánh giá" });
   }
@@ -22,19 +21,19 @@ router.post("/", verifyToken, (req, res) => {
     ON DUPLICATE KEY UPDATE rating = VALUES(rating), comment = VALUES(comment)
   `;
 
-  db.query(sql, [product_id, user_id, rating, comment], (err) => {
-    if (err) {
-      console.error("❌ Lỗi ghi đánh giá:", err);
-      return res.status(500).json({ error: "Không thể ghi đánh giá" });
-    }
+  try {
+    await query(sql, [product_id, user_id, rating, comment]);
     res.status(201).json({ message: "✅ Đã ghi nhận đánh giá" });
-  });
+  } catch (err) {
+    console.error("❌ Lỗi ghi đánh giá:", err);
+    res.status(500).json({ error: "Không thể ghi đánh giá" });
+  }
 });
 
 /**
  * [GET] /ratings/product/:id - Lấy danh sách đánh giá theo sản phẩm
  */
-router.get("/product/:id", (req, res) => {
+router.get("/product/:id", async (req, res) => {
   const productId = req.params.id;
 
   const sql = `
@@ -45,15 +44,13 @@ router.get("/product/:id", (req, res) => {
     ORDER BY r.created_at DESC
   `;
 
-  db.query(sql, [productId], (err, results) => {
-    if (err) {
-      console.error("❌ Lỗi lấy đánh giá:", err);
-      return res
-        .status(500)
-        .json({ error: "Không thể lấy danh sách đánh giá" });
-    }
-    res.json(results);
-  });
+  try {
+    const ratings = await query(sql, [productId]);
+    res.json(ratings);
+  } catch (err) {
+    console.error("❌ Lỗi lấy đánh giá:", err);
+    res.status(500).json({ error: "Không thể lấy danh sách đánh giá" });
+  }
 });
 
 export default router;
