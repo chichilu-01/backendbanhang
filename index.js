@@ -23,7 +23,6 @@ app.use(express.json());
 app.use(morgan("dev")); // 👉 log các request ra console
 
 // ✅ Import route từng cái với log để dễ debug
-
 console.log("🔄 Import authRoutes...");
 import authRoutes from "./routes/auth.js";
 console.log("✅ Done authRoutes");
