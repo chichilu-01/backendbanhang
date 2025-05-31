@@ -1,19 +1,13 @@
 import { Router } from "express";
-import { register, login, verifyCode } from "../controllers/auth.controller.js";
-import {
-  forgotPassword,
-  verifyResetCode,
-  resetPassword,
-} from "../controllers/auth.controller.js";
+import * as auth from "../controllers/auth.controller.js";
 
 const router = Router();
 
-router.post("/register", register);
-router.post("/verify-code", verifyCode); // 👈 route xác nhận mã
-router.post("/login", login);
-
-router.post("/forgot-password", forgotPassword);
-router.post("/verify-reset-code", verifyResetCode);
-router.post("/reset-password", resetPassword);
+router.post("/register", auth.register);
+router.post("/verify-code", auth.verifyCode);
+router.post("/login", auth.login);
+router.post("/forgot-password", auth.forgotPassword);
+router.post("/verify-reset-code", auth.verifyResetCode);
+router.post("/reset-password", auth.resetPassword);
 
 export default router;

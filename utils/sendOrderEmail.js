@@ -1,23 +1,14 @@
-import { createTransport } from "nodemailer";
+import transporter from "./mailClient.js";
 
 const sendOrderEmail = async (to, orderId, total, items) => {
-  const transporter = createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
   const itemHtml = items
     .map(
-      (item) => `
-        <li>${item.name} x ${item.quantity} - ${(item.price * item.quantity).toLocaleString()} VND</li>
-      `,
+      (item) =>
+        `<li>${item.name} x ${item.quantity} - ${(item.price * item.quantity).toLocaleString()} VND</li>`,
     )
     .join("");
 
-  const mailOptions = {
+  await transporter.sendMail({
     from: `Shop Replit <${process.env.EMAIL_USER}>`,
     to,
     subject: `✅ Xác nhận đơn hàng #${orderId}`,
@@ -26,9 +17,7 @@ const sendOrderEmail = async (to, orderId, total, items) => {
            <p><strong>Chi tiết đơn hàng:</strong></p>
            <ul>${itemHtml}</ul>
            <p><strong>Tổng tiền:</strong> ${total.toLocaleString()} VND</p>`,
-  };
-
-  await transporter.sendMail(mailOptions);
+  });
 };
 
-export default sendOrderEmail; // ✅ Dòng này phải như vậy
+export default sendOrderEmail;
