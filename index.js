@@ -76,34 +76,34 @@ console.log("🔗 Gắn /api/auth");
 app.use("/api/auth", authRoutes);
 
 console.log("🔗 Gắn /api/users");
-app.use("/api/users", userRoutes);
+app.use("/api/auth/users", userRoutes);
 
 console.log("🔗 Gắn /api/products");
-app.use("/api/products", productRoutes);
+app.use("/api/auth/products", productRoutes);
 
 console.log("🔗 Gắn /api/cart");
-app.use("/api/cart", cartRoutes);
+app.use("/api/auth/cart", cartRoutes);
 
 console.log("🔗 Gắn /api/orders");
-app.use("/api/orders", orderRoutes);
+app.use("/api/auth/orders", orderRoutes);
 
 console.log("🔗 Gắn /api/reviews");
-app.use("/api/reviews", reviewRoutes);
+app.use("/api/auth/reviews", reviewRoutes);
 
 console.log("🔗 Gắn /api/ratings");
-app.use("/api/ratings", ratingsRoutes);
+app.use("/api/auth/ratings", ratingsRoutes);
 
 console.log("🔗 Gắn /api/upload");
-app.use("/api/upload", uploadRoutes);
+app.use("/api/auth/upload", uploadRoutes);
 
 console.log("🔗 Gắn /api/media");
-app.use("/api/media", mediaRoutes);
+app.use("/api/auth/media", mediaRoutes);
 
 console.log("🔗 Gắn /api/admin");
-app.use("/api/admin", adminRoutes);
+app.use("/api/auth/admin", adminRoutes);
 
 console.log("🔗 Gắn /api/protected");
-app.use("/api/protected", protectedRoutes);
+app.use("/api/auth/protected", protectedRoutes);
 
 // ✅ Middleware xử lý lỗi cuối cùng
 app.use((err, _req, res, _next) => {
