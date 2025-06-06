@@ -3,9 +3,10 @@ const router = Router();
 import { query } from "../db.js";
 import verifyToken from "../middleware/verifyToken.js";
 
-// Gửi đánh giá
-router.post("/", verifyToken, (req, res) => {
-  const { product_id, rating, comment } = req.body;
+// ✅ Gửi đánh giá: POST /api/products/:product_id/reviews
+router.post("/:product_id/reviews", verifyToken, (req, res) => {
+  const { rating, comment } = req.body;
+  const { product_id } = req.params;
   const user_id = req.user.id;
 
   query(
@@ -20,11 +21,11 @@ router.post("/", verifyToken, (req, res) => {
   );
 });
 
-// Lấy đánh giá theo sản phẩm
-router.get("/:product_id", (req, res) => {
+// ✅ Lấy đánh giá theo sản phẩm: GET /api/products/:product_id/reviews
+router.get("/:product_id/reviews", (req, res) => {
   const product_id = req.params.product_id;
   query(
-    `SELECT r.rating, r.comment, r.created_at, u.name
+    `SELECT r.rating, r.comment, r.created_at, u.name AS userName
      FROM reviews r
      JOIN users u ON r.user_id = u.id
      WHERE r.product_id = ?

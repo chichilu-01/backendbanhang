@@ -5,7 +5,7 @@ import verifyToken from "../middleware/verifyToken.js";
 const router = express.Router();
 
 //
-// 📦 LẤY DANH SÁCH TẤT CẢ SẢN PHẨM (route chính)
+// 📦 LẤY DANH SÁCH TẤT CẢ SẢN PHẨM
 // GET /api/products
 //
 router.get("/", async (_req, res) => {
@@ -19,7 +19,7 @@ router.get("/", async (_req, res) => {
 });
 
 //
-// 🔍 GỢI Ý TÌM KIẾM SẢN PHẨM
+// 🔍 GỢI Ý TÌM KIẾM
 // GET /api/products/suggest?keyword=ao
 //
 router.get("/suggest", async (req, res) => {
@@ -31,8 +31,7 @@ router.get("/suggest", async (req, res) => {
       "SELECT name FROM products WHERE name LIKE ? LIMIT 10",
       [`%${keyword}%`],
     );
-    const suggestions = rows.map((row) => row.name);
-    res.json(suggestions);
+    res.json(rows.map((row) => row.name));
   } catch (err) {
     console.error("❌ Lỗi khi tìm gợi ý:", err);
     res.status(500).json({ error: "Lỗi server" });
@@ -64,7 +63,7 @@ router.post("/filters/save", verifyToken, async (req, res) => {
 });
 
 //
-// 🔒 LẤY DANH SÁCH BỘ LỌC ĐÃ LƯU
+// 🔒 LẤY DANH SÁCH BỘ LỌC
 // GET /api/products/filters
 //
 router.get("/filters", verifyToken, async (req, res) => {
@@ -76,13 +75,13 @@ router.get("/filters", verifyToken, async (req, res) => {
       [user_id],
     );
 
-    const filters = rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      filter: JSON.parse(row.filter_data),
-    }));
-
-    res.json(filters);
+    res.json(
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        filter: JSON.parse(row.filter_data),
+      })),
+    );
   } catch (err) {
     console.error("❌ Lỗi lấy bộ lọc đã lưu:", err);
     res.status(500).json({ error: "Không thể lấy danh sách bộ lọc" });
@@ -90,7 +89,7 @@ router.get("/filters", verifyToken, async (req, res) => {
 });
 
 //
-// 📦 LẤY CHI TIẾT SẢN PHẨM THEO ID
+// 📦 LẤY CHI TIẾT SẢN PHẨM
 // GET /api/products/:id
 //
 router.get("/:id", async (req, res) => {
@@ -98,15 +97,104 @@ router.get("/:id", async (req, res) => {
 
   try {
     const rows = await query("SELECT * FROM products WHERE id = ?", [id]);
-
     if (rows.length === 0) {
       return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
     }
-
     res.json(rows[0]);
   } catch (err) {
     console.error("❌ Lỗi khi lấy chi tiết sản phẩm:", err);
     res.status(500).json({ error: "Lỗi server" });
+  }
+});
+
+//
+// ✅ THÊM SẢN PHẨM (Admin)
+// POST /api/products
+//
+router.post("/", verifyToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Không có quyền" });
+  }
+
+  const { name, price, description, image, images, sizes, colors, stock } =
+    req.body;
+
+  try {
+    const result = await query(
+      `INSERT INTO products (name, price, description, image, images, sizes, colors, stock)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        price,
+        description,
+        image,
+        JSON.stringify(images || []),
+        JSON.stringify(sizes || []),
+        JSON.stringify(colors || []),
+        stock || 0,
+      ],
+    );
+
+    res.status(201).json({ id: result.insertId, message: "Đã thêm sản phẩm" });
+  } catch (err) {
+    console.error("❌ Lỗi thêm sản phẩm:", err);
+    res.status(500).json({ error: "Không thể thêm sản phẩm" });
+  }
+});
+
+//
+// ✅ CẬP NHẬT SẢN PHẨM
+// PUT /api/products/:id
+//
+router.put("/:id", verifyToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Không có quyền" });
+  }
+
+  const { id } = req.params;
+  const { name, price, description, image, images, sizes, colors, stock } =
+    req.body;
+
+  try {
+    await query(
+      `UPDATE products SET name=?, price=?, description=?, image=?, images=?, sizes=?, colors=?, stock=? WHERE id=?`,
+      [
+        name,
+        price,
+        description,
+        image,
+        JSON.stringify(images || []),
+        JSON.stringify(sizes || []),
+        JSON.stringify(colors || []),
+        stock || 0,
+        id,
+      ],
+    );
+
+    res.json({ message: "Đã cập nhật sản phẩm" });
+  } catch (err) {
+    console.error("❌ Lỗi cập nhật sản phẩm:", err);
+    res.status(500).json({ error: "Không thể cập nhật sản phẩm" });
+  }
+});
+
+//
+// ✅ XOÁ SẢN PHẨM
+// DELETE /api/products/:id
+//
+router.delete("/:id", verifyToken, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Không có quyền" });
+  }
+
+  const { id } = req.params;
+
+  try {
+    await query("DELETE FROM products WHERE id = ?", [id]);
+    res.json({ message: "Đã xoá sản phẩm" });
+  } catch (err) {
+    console.error("❌ Lỗi xoá sản phẩm:", err);
+    res.status(500).json({ error: "Không thể xoá sản phẩm" });
   }
 });
 
