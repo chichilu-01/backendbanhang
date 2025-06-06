@@ -24,10 +24,27 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 /**
- * POST /api/upload
- * Upload 1 ảnh/video
+ * [GET] /media/product/:id - Lấy danh sách media của sản phẩm
  */
-router.post("/", upload.single("file"), async (req, res) => {
+router.get("/product/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const rows = await query(
+      "SELECT id, type, url, is_main, uploaded_at FROM product_media WHERE product_id = ? ORDER BY uploaded_at DESC",
+      [id],
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ Lỗi lấy media:", err);
+    res.status(500).json({ error: "Không lấy được media" });
+  }
+});
+
+/**
+ * [POST] /media/upload - Upload media mới
+ */
+router.post("/upload", upload.single("file"), async (req, res) => {
   const { product_id } = req.body;
   const file = req.file;
 
@@ -59,8 +76,7 @@ router.post("/", upload.single("file"), async (req, res) => {
 });
 
 /**
- * DELETE /api/upload/:id
- * Xoá media (DB và Cloudinary nếu có public_id)
+ * [DELETE] /media/:id - Xoá media
  */
 router.delete("/:id", async (req, res) => {
   const mediaId = req.params.id;
@@ -77,7 +93,6 @@ router.delete("/:id", async (req, res) => {
 
     const publicId = result[0].public_id;
 
-    // Xoá Cloudinary nếu có
     if (publicId) {
       try {
         await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
@@ -86,7 +101,6 @@ router.delete("/:id", async (req, res) => {
       }
     }
 
-    // Xoá DB
     await query("DELETE FROM product_media WHERE id = ?", [mediaId]);
     res.json({ message: "Đã xoá thành công" });
   } catch (err) {
@@ -96,27 +110,7 @@ router.delete("/:id", async (req, res) => {
 });
 
 /**
- * GET /api/upload/products/:id/media
- * Lấy media theo product_id
- */
-router.get("/products/:id/media", async (req, res) => {
-  const productId = req.params.id;
-
-  try {
-    const rows = await query(
-      "SELECT * FROM product_media WHERE product_id = ? ORDER BY uploaded_at DESC",
-      [productId],
-    );
-    res.json(rows);
-  } catch (err) {
-    console.error("❌ Lỗi khi lấy media:", err);
-    res.status(500).json({ error: "Lỗi truy vấn media" });
-  }
-});
-
-/**
- * PATCH /api/upload/:id/set-main
- * Đặt ảnh chính
+ * [PATCH] /media/:id/set-main - Đặt ảnh chính
  */
 router.patch("/:id/set-main", async (req, res) => {
   const mediaId = req.params.id;
