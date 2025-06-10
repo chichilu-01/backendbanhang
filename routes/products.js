@@ -115,6 +115,7 @@ router.post("/", verifyToken, async (req, res) => {
   if (req.user.role !== "admin") {
     return res.status(403).json({ error: "Không có quyền" });
   }
+  console.log("🧾 req.body gửi lên:", req.body);
 
   const { name, price, description, image, images, sizes, colors, stock } =
     req.body;
