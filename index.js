@@ -11,8 +11,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import reviewRoutes from "./routes/reviews.js";
-//import mediaRoutes from "./routes/media.js"; // ✅ mount tay media
-import productRoutes from "./routes/products.js";
+import mediaRoutes from "./routes/media.js"; // ✅ mount tay media
+//import productRoutes from "./routes/products.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -35,8 +35,8 @@ app.get("/health", (_req, res) => res.send("✅ API OK"));
 
 // ✅ Gắn tay những route quan trọng
 app.use("/api/products", reviewRoutes);
-//app.use("/api/media", mediaRoutes);
-app.use("/api/products", productRoutes); // ✅ đúng
+app.use("/api/media", mediaRoutes);
+//app.use("/api/products", productRoutes); // ✅ đúng
 
 // 🪄 Auto import các route còn lại (không lặp lại reviews/media)
 const routesPath = path.join(__dirname, "routes");
