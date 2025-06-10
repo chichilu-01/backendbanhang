@@ -197,6 +197,5 @@ router.delete("/:id", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Không thể xoá sản phẩm" });
   }
 });
-console.log("🧾 req.body gửi lên:", req.body);
 
 export default router;
