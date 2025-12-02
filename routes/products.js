@@ -75,15 +75,32 @@ router.get("/filters", verifyToken, async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const rows = await query("SELECT * FROM products WHERE id = ?", [id]);
+    const rows = await query(`
+      SELECT 
+        p.*,
+        (SELECT AVG(r.rating) FROM reviews r WHERE r.product_id = p.id) AS average_rating,
+        (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS review_count
+      FROM products p
+      WHERE p.id = ?
+      LIMIT 1
+    `, [id]);
+
     if (rows.length === 0)
       return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
-    res.json(rows[0]);
+
+    const product = rows[0];
+
+    product.average_rating = Number(product.average_rating) || 0;
+    product.review_count = Number(product.review_count) || 0;
+
+    res.json(product);
+
   } catch (err) {
     console.error("❌ Lỗi chi tiết sản phẩm:", err);
     res.status(500).json({ error: "Lỗi server" });
   }
 });
+
 
 // ✅ THÊM SẢN PHẨM
 router.post("/", verifyToken, async (req, res) => {
