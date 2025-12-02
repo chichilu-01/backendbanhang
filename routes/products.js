@@ -4,21 +4,40 @@ import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
-// 📦 LẤY DANH SÁCH SẢN PHẨM
+/* =====================================================================
+   📌 1. GET DANH SÁCH SẢN PHẨM (CÓ TRẢ average_rating + review_count)
+   ===================================================================== */
 router.get("/", async (_req, res) => {
   try {
-    const rows = await query("SELECT * FROM products ORDER BY id DESC");
-    res.json(rows);
+    const rows = await query(`
+      SELECT 
+        p.*,
+        (SELECT AVG(r.rating) FROM reviews r WHERE r.product_id = p.id) AS average_rating,
+        (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS review_count
+      FROM products p
+      ORDER BY p.id DESC
+    `);
+
+    const fixed = rows.map((p) => ({
+      ...p,
+      average_rating: Number(p.average_rating) || 0,
+      review_count: Number(p.review_count) || 0,
+    }));
+
+    res.json(fixed);
   } catch (err) {
     console.error("❌ Lỗi truy vấn sản phẩm:", err);
     res.status(500).json({ error: "Không thể lấy danh sách sản phẩm" });
   }
 });
 
-// 🔍 GỢI Ý TÊN SẢN PHẨM
+/* =====================================================================
+   🔍 GỢI Ý TÊN SẢN PHẨM
+   ===================================================================== */
 router.get("/suggest", async (req, res) => {
   const { keyword } = req.query;
   if (!keyword) return res.json([]);
+
   try {
     const rows = await query(
       "SELECT name FROM products WHERE name LIKE ? LIMIT 10",
@@ -31,10 +50,13 @@ router.get("/suggest", async (req, res) => {
   }
 });
 
-// 🔒 LƯU BỘ LỌC YÊU THÍCH
+/* =====================================================================
+   🔒 LƯU BỘ LỌC YÊU THÍCH
+   ===================================================================== */
 router.post("/filters/save", verifyToken, async (req, res) => {
   const { user_id } = req.user;
   const { name, filter } = req.body;
+
   if (!name || !filter)
     return res.status(400).json({ error: "Thiếu tên hoặc dữ liệu bộ lọc" });
 
@@ -50,14 +72,18 @@ router.post("/filters/save", verifyToken, async (req, res) => {
   }
 });
 
-// 🔒 LẤY DANH SÁCH BỘ LỌC
+/* =====================================================================
+   🔒 LẤY DANH SÁCH BỘ LỌC
+   ===================================================================== */
 router.get("/filters", verifyToken, async (req, res) => {
   const { user_id } = req.user;
+
   try {
     const rows = await query(
       "SELECT id, name, filter_data FROM favorite_filters WHERE user_id = ? ORDER BY id DESC",
       [user_id],
     );
+
     res.json(
       rows.map((row) => ({
         id: row.id,
@@ -71,11 +97,15 @@ router.get("/filters", verifyToken, async (req, res) => {
   }
 });
 
-// 📦 LẤY CHI TIẾT SẢN PHẨM
+/* =====================================================================
+   📌 2. GET CHI TIẾT SẢN PHẨM (CÓ TRẢ average_rating + review_count)
+   ===================================================================== */
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
+
   try {
-    const rows = await query(`
+    const rows = await query(
+      `
       SELECT 
         p.*,
         (SELECT AVG(r.rating) FROM reviews r WHERE r.product_id = p.id) AS average_rating,
@@ -83,28 +113,28 @@ router.get("/:id", async (req, res) => {
       FROM products p
       WHERE p.id = ?
       LIMIT 1
-    `, [id]);
+      `,
+      [id],
+    );
 
     if (rows.length === 0)
       return res.status(404).json({ error: "Không tìm thấy sản phẩm" });
 
     const product = rows[0];
-
     product.average_rating = Number(product.average_rating) || 0;
     product.review_count = Number(product.review_count) || 0;
 
     res.json(product);
-
   } catch (err) {
     console.error("❌ Lỗi chi tiết sản phẩm:", err);
     res.status(500).json({ error: "Lỗi server" });
   }
 });
 
-
-// ✅ THÊM SẢN PHẨM
+/* =====================================================================
+   ➕ THÊM SẢN PHẨM
+   ===================================================================== */
 router.post("/", verifyToken, async (req, res) => {
-  console.log("🧾 req.body gửi lên:", req.body);
   if (req.user.role !== "admin")
     return res.status(403).json({ error: "Không có quyền" });
 
@@ -132,6 +162,7 @@ router.post("/", verifyToken, async (req, res) => {
         stock,
       ],
     );
+
     res.status(201).json({ id: result.insertId, message: "Đã thêm sản phẩm" });
   } catch (err) {
     console.error("❌ Lỗi thêm sản phẩm:", err);
@@ -139,7 +170,9 @@ router.post("/", verifyToken, async (req, res) => {
   }
 });
 
-// ✅ CẬP NHẬT SẢN PHẨM
+/* =====================================================================
+   ✏️ CẬP NHẬT SẢN PHẨM
+   ===================================================================== */
 router.put("/:id", verifyToken, async (req, res) => {
   if (req.user.role !== "admin")
     return res.status(403).json({ error: "Không có quyền" });
@@ -157,7 +190,11 @@ router.put("/:id", verifyToken, async (req, res) => {
 
   try {
     await query(
-      `UPDATE products SET name=?, price=?, description=?, image_url=?, sizes=?, colors=?, stock=? WHERE id=?`,
+      `
+      UPDATE products 
+      SET name=?, price=?, description=?, image_url=?, sizes=?, colors=?, stock=? 
+      WHERE id=?
+      `,
       [
         name,
         price,
@@ -169,6 +206,7 @@ router.put("/:id", verifyToken, async (req, res) => {
         id,
       ],
     );
+
     res.json({ message: "Đã cập nhật sản phẩm" });
   } catch (err) {
     console.error("❌ Lỗi cập nhật sản phẩm:", err);
@@ -176,12 +214,15 @@ router.put("/:id", verifyToken, async (req, res) => {
   }
 });
 
-// ✅ XOÁ SẢN PHẨM
+/* =====================================================================
+   ❌ XOÁ SẢN PHẨM
+   ===================================================================== */
 router.delete("/:id", verifyToken, async (req, res) => {
   if (req.user.role !== "admin")
     return res.status(403).json({ error: "Không có quyền" });
 
   const { id } = req.params;
+
   try {
     await query("DELETE FROM products WHERE id = ?", [id]);
     res.json({ message: "Đã xoá sản phẩm" });
