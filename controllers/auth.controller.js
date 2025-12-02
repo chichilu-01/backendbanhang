@@ -242,3 +242,18 @@ export const changePassword = async (req, res) => {
     res.status(500).json({ error: "Lỗi server" });
   }
 };
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [rows] = await query(
+      "SELECT id, name, email, phone, birthday, gender, address, role FROM users WHERE id = ?",
+      [userId],
+    );
+
+    res.json({ user: rows });
+  } catch (err) {
+    console.error("getProfile error:", err);
+    res.status(500).json({ error: "Không lấy được thông tin user" });
+  }
+};

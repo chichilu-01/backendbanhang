@@ -15,5 +15,7 @@ router.post("/reset-password", auth.resetPassword);
 
 router.put("/profile", verifyToken, auth.updateProfile);
 router.put("/change-password", verifyToken, auth.changePassword);
+router.get("/me", verifyToken, auth.getProfile);
+
 
 export default router;
