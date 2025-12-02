@@ -10,27 +10,42 @@ import { query } from "../db.js";
 const router = Router();
 const upload = multer({ dest: "uploads/" });
 
-// ⚙️ Cấu hình Cloudinary
+// ⚙️ Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// ✅ Upload từ URL ảnh → Cloudinary → DB
+// =============================================
+// ✅ Helper: kiểm tra sản phẩm có ảnh chưa
+// =============================================
+async function getIsMainValue(product_id) {
+  const rows = await query(
+    "SELECT COUNT(*) AS total FROM product_media WHERE product_id = ?",
+    [product_id],
+  );
+  return rows[0].total === 0 ? 1 : 0; // nếu chưa có ảnh → ảnh đầu = main
+}
+
+// =============================================
+// ✅ Upload từ URL
+// =============================================
 router.post("/upload", verifyToken, isAdmin, async (req, res) => {
   try {
-    const { url, product_id, is_main } = req.body;
+    const { url, product_id } = req.body;
     if (!url || !product_id)
       return res.status(400).json({ error: "Thiếu thông tin" });
+
+    const is_main = await getIsMainValue(product_id);
 
     const result = await cloudinary.uploader.upload(url, {
       folder: "products",
     });
 
     await query(
-      "INSERT INTO product_media (product_id, url, type, is_main) VALUES (?, ?, ?, ?)",
-      [product_id, result.secure_url, "image", is_main || false],
+      "INSERT INTO product_media (product_id, url, type, is_main) VALUES (?, ?, 'image', ?)",
+      [product_id, result.secure_url, is_main],
     );
 
     res.json({ message: "✅ Upload thành công", url: result.secure_url });
@@ -40,7 +55,9 @@ router.post("/upload", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ Upload từ file → Cloudinary → DB
+// =============================================
+// ✅ Upload từ File
+// =============================================
 router.post(
   "/upload-file",
   verifyToken,
@@ -48,20 +65,23 @@ router.post(
   upload.single("file"),
   async (req, res) => {
     try {
-      const { product_id, is_main } = req.body;
-      const filePath = req.file.path;
-
+      const { product_id } = req.body;
       if (!product_id)
         return res.status(400).json({ error: "Thiếu product_id" });
+
+      const filePath = req.file.path;
+
+      const is_main = await getIsMainValue(product_id);
 
       const result = await cloudinary.uploader.upload(filePath, {
         folder: "products",
       });
+
       await fs.unlink(filePath);
 
       await query(
-        "INSERT INTO product_media (product_id, url, type, is_main) VALUES (?, ?, ?, ?)",
-        [product_id, result.secure_url, "image", is_main || false],
+        "INSERT INTO product_media (product_id, url, type, is_main) VALUES (?, ?, 'image', ?)",
+        [product_id, result.secure_url, is_main],
       );
 
       res.json({
@@ -75,15 +95,20 @@ router.post(
   },
 );
 
-// ✅ GET /media/product/:id
+// =============================================
+// ✅ Lấy danh sách media theo sản phẩm
+// (ảnh chính sẽ luôn đứng đầu)
+// =============================================
 router.get("/product/:id", async (req, res) => {
-  const { id } = req.params;
-
   try {
     const rows = await query(
-      "SELECT id, type, url, is_main, uploaded_at FROM product_media WHERE product_id = ? ORDER BY uploaded_at DESC",
-      [id],
+      `SELECT id, type, url, is_main, uploaded_at 
+       FROM product_media 
+       WHERE product_id = ?
+       ORDER BY is_main DESC, uploaded_at DESC`,
+      [req.params.id],
     );
+
     res.json(rows);
   } catch (err) {
     console.error("❌ Lỗi lấy media:", err);
@@ -91,12 +116,14 @@ router.get("/product/:id", async (req, res) => {
   }
 });
 
-// ✅ DELETE /media/:id
+// =============================================
+// ✅ Xoá ảnh theo ID
+// =============================================
 router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
-  const { id } = req.params;
-
   try {
-    const result = await query("DELETE FROM product_media WHERE id = ?", [id]);
+    const result = await query("DELETE FROM product_media WHERE id = ?", [
+      req.params.id,
+    ]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ error: "Không tìm thấy media" });
@@ -109,14 +136,14 @@ router.delete("/:id", verifyToken, isAdmin, async (req, res) => {
   }
 });
 
-// ✅ PATCH /media/:id/set-main
+// =============================================
+// ✅ Đặt ảnh chính (set-main)
+// =============================================
 router.patch("/:id/set-main", verifyToken, isAdmin, async (req, res) => {
-  const { id } = req.params;
-
   try {
     const rows = await query(
       "SELECT product_id FROM product_media WHERE id = ?",
-      [id],
+      [req.params.id],
     );
 
     if (rows.length === 0) {
@@ -128,7 +155,10 @@ router.patch("/:id/set-main", verifyToken, isAdmin, async (req, res) => {
     await query("UPDATE product_media SET is_main = 0 WHERE product_id = ?", [
       productId,
     ]);
-    await query("UPDATE product_media SET is_main = 1 WHERE id = ?", [id]);
+
+    await query("UPDATE product_media SET is_main = 1 WHERE id = ?", [
+      req.params.id,
+    ]);
 
     res.json({ message: "✅ Đã đặt ảnh chính" });
   } catch (err) {
