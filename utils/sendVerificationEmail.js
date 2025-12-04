@@ -1,14 +1,19 @@
-import transporter from "./mailClient.js";
+import resend from "./mailClient.js";
 
 const sendVerificationEmail = async (to, code) => {
-  await transporter.sendMail({
-    from: `Shop Replit <${process.env.EMAIL_USER}>`,
+  await resend.emails.send({
+    from: process.env.EMAIL_FROM,
     to,
-    subject: "🔐 Mã xác nhận đăng ký",
+    subject: "📩 Mã xác nhận đăng ký tài khoản",
     html: `
-      <p>Xin chào,</p>
-      <p>Mã xác nhận đăng ký của bạn là: <b>${code}</b></p>
-      <p>Mã có hiệu lực trong 5 phút.</p>
+      <div style="font-family: sans-serif;">
+        <h2>📩 Xác nhận đăng ký</h2>
+        <p>Mã xác nhận của bạn là:</p>
+        <h1 style="color:#16a34a">${code}</h1>
+        <p>Mã có hiệu lực trong <b>5 phút</b>.</p>
+        <br/>
+        <p>CHICHILU Shop</p>
+      </div>
     `,
   });
 };

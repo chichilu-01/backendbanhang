@@ -25,7 +25,8 @@
     "multer": "^2.0.0",
     "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "^3.14.1",
-    "nodemailer": "^7.0.3"
+    "nodemailer": "^7.0.3",
+    "resend": "^6.5.2"
   },
   "devDependencies": {
     "eslint-plugin-promise": "^7.2.1",

@@ -5,10 +5,10 @@ import sendVerificationEmail from "../utils/sendVerificationEmail.js";
 import sendResetCodeEmail from "../utils/sendResetCodeEmail.js";
 
 // Tạm lưu OTP và mã reset trong RAM (nâng cao sau có thể dùng Redis)
-const otpStore = {}; // { email: { code, data, expires } }
-const resetStore = {}; // { email: { code, expires } }
+const otpStore = {}; 
+const resetStore = {}; 
 
-// 🔁 Hàm dùng chung để kiểm tra mã xác thực (OTP / Reset)
+// 🔁 Hàm kiểm tra mã OTP / Reset
 const isCodeValid = (store, email, code) => {
   const entry = store[email];
   if (!entry || Date.now() > entry.expires)
@@ -18,14 +18,14 @@ const isCodeValid = (store, email, code) => {
   return { valid: true };
 };
 
-// [POST] /api/auth/register
+// ===============================
+// 🔐 REGISTER
+// ===============================
 export const register = async (req, res) => {
   const { name, email, password, role = "user" } = req.body;
 
   try {
-    const existing = await query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
+    const existing = await query("SELECT * FROM users WHERE email = ?", [email]);
     if (existing.length > 0)
       return res.status(400).json({ error: "Email đã được sử dụng" });
 
@@ -39,6 +39,7 @@ export const register = async (req, res) => {
     };
 
     await sendVerificationEmail(email, otp);
+
     res.json({ message: "📩 Mã xác nhận đã gửi đến email" });
   } catch (err) {
     console.error("❌ Lỗi register:", err);
@@ -46,10 +47,13 @@ export const register = async (req, res) => {
   }
 };
 
-// [POST] /api/auth/verify-code
+// ===============================
+// 🔐 VERIFY REGISTER CODE
+// ===============================
 export const verifyCode = async (req, res) => {
   const { email, code } = req.body;
   const check = isCodeValid(otpStore, email, code);
+
   if (!check.valid) return res.status(400).json({ error: check.error });
 
   const { name, hashedPassword, role } = otpStore[email].data;
@@ -57,9 +61,11 @@ export const verifyCode = async (req, res) => {
   try {
     await query(
       "INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
-      [name, email, hashedPassword, role],
+      [name, email, hashedPassword, role]
     );
+
     delete otpStore[email];
+
     res.json({ message: "✅ Đăng ký thành công!" });
   } catch (err) {
     console.error("❌ Lỗi thêm user:", err);
@@ -67,7 +73,9 @@ export const verifyCode = async (req, res) => {
   }
 };
 
-// [POST] /api/auth/login
+// ===============================
+// 🔐 LOGIN
+// ===============================
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -83,7 +91,7 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }, // 🎯 giữ đăng nhập lâu hơn
+      { expiresIn: "7d" }
     );
 
     res.json({
@@ -102,7 +110,9 @@ export const login = async (req, res) => {
   }
 };
 
-// [POST] /api/auth/forgot-password
+// ===============================
+// 🔐 FORGOT PASSWORD
+// ===============================
 export const forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -112,29 +122,36 @@ export const forgotPassword = async (req, res) => {
       return res.status(404).json({ error: "Email không tồn tại" });
 
     const code = Math.floor(100000 + Math.random() * 900000);
+
     resetStore[email] = {
       code,
       expires: Date.now() + 5 * 60 * 1000,
     };
 
     await sendResetCodeEmail(email, code);
+
     res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" });
   } catch (err) {
     console.error("❌ Lỗi forgotPassword:", err);
-    res.status(500).json({ error: "Không gửi được email" });
+    res.status(500).json({ error: "Không gửi được email. Vui lòng thử lại!" });
   }
 };
 
-// [POST] /api/auth/verify-reset-code
+// ===============================
+// 🔐 VERIFY RESET CODE
+// ===============================
 export const verifyResetCode = (req, res) => {
   const { email, code } = req.body;
+
   const check = isCodeValid(resetStore, email, code);
   if (!check.valid) return res.status(400).json({ error: check.error });
 
   res.json({ message: "✅ Mã hợp lệ, tiếp tục đặt lại mật khẩu." });
 };
 
-// [POST] /api/auth/reset-password
+// ===============================
+// 🔐 RESET PASSWORD
+// ===============================
 export const resetPassword = async (req, res) => {
   const { email, newPassword } = req.body;
 
@@ -143,11 +160,14 @@ export const resetPassword = async (req, res) => {
 
   try {
     const hashed = await bcrypt.hash(newPassword, 10);
+
     await query("UPDATE users SET password = ? WHERE email = ?", [
       hashed,
       email,
     ]);
+
     delete resetStore[email];
+
     res.json({ message: "🔐 Đặt lại mật khẩu thành công!" });
   } catch (err) {
     console.error("❌ Lỗi resetPassword:", err);
@@ -155,100 +175,16 @@ export const resetPassword = async (req, res) => {
   }
 };
 
-// [PUT] /api/auth/profile
-export const updateProfile = async (req, res) => {
-  const userId = req.user.id; // Lấy từ verifyToken
-  const { name, email, phone, birthday, gender, address } = req.body;
-
-  try {
-    // ===== Validate bắt buộc =====
-    if (!name || !email) {
-      return res.status(400).json({ error: "Tên và Email là bắt buộc" });
-    }
-
-    // ===== Kiểm tra email trùng =====
-    const exists = await query(
-      "SELECT id FROM users WHERE email = ? AND id != ?",
-      [email, userId],
-    );
-
-    if (exists.length > 0) {
-      return res.status(400).json({
-        error: "Email này đã được dùng bởi tài khoản khác",
-      });
-    }
-
-    // ===== Update DB =====
-    await query(
-      `
-      UPDATE users SET 
-        name = ?, 
-        email = ?, 
-        phone = ?, 
-        birthday = ?, 
-        gender = ?, 
-        address = ?
-      WHERE id = ?
-    `,
-      [name, email, phone, birthday, gender, address, userId],
-    );
-
-    // ===== Lấy user mới =====
-    const [updated] = await query(
-      `SELECT id, name, email, phone, birthday || null, gender, address, role 
-       FROM users WHERE id = ?`,
-      [userId],
-    );
-
-    res.json({
-      message: "Cập nhật thông tin thành công!",
-      user: updated,
-    });
-  } catch (err) {
-    console.error("❌ updateProfile error:", err);
-    res.status(500).json({ error: "Lỗi server khi cập nhật hồ sơ" });
-  }
-};
-
-// [PUT] /api/auth/change-password
-export const changePassword = async (req, res) => {
-  const userId = req.user.id;
-  const { oldPassword, newPassword } = req.body;
-
-  if (!oldPassword || !newPassword)
-    return res.status(400).json({ error: "Thiếu thông tin" });
-
-  try {
-    // Lấy user
-    const rows = await query("SELECT * FROM users WHERE id = ?", [userId]);
-    if (rows.length === 0)
-      return res.status(404).json({ error: "Không tìm thấy user" });
-
-    const user = rows[0];
-
-    // Check mật khẩu cũ
-    const match = await bcrypt.compare(oldPassword, user.password);
-    if (!match)
-      return res.status(400).json({ error: "Mật khẩu cũ không đúng" });
-
-    // Hash mật khẩu mới
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await query("UPDATE users SET password = ? WHERE id = ?", [hashed, userId]);
-
-    res.json({ message: "🔐 Đổi mật khẩu thành công!" });
-  } catch (err) {
-    console.error("❌ changePassword error:", err);
-    res.status(500).json({ error: "Lỗi server" });
-  }
-};
-
+// ===============================
+// 🔐 PROFILE
+// ===============================
 export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
+
     const [rows] = await query(
       "SELECT id, name, email, phone, birthday, gender, address, role FROM users WHERE id = ?",
-      [userId],
+      [userId]
     );
 
     res.json({ user: rows });
