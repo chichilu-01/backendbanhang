@@ -103,26 +103,38 @@ export const login = async (req, res) => {
 };
 
 // [POST] /api/auth/forgot-password
+// file: [Tên file controller của bạn]
+
+// [POST] /api/auth/forgot-password
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
+    const { email } = req.body;
 
-  try {
-    const users = await query("SELECT * FROM users WHERE email = ?", [email]);
-    if (users.length === 0)
-      return res.status(404).json({ error: "Email không tồn tại" });
+    try {
+        const users = await query("SELECT * FROM users WHERE email = ?", [email]);
+        if (users.length === 0)
+            // Nên trả về 200/202 để tránh người khác scan email
+            return res.status(404).json({ error: "Email không tồn tại" }); 
 
-    const code = Math.floor(100000 + Math.random() * 900000);
-    resetStore[email] = {
-      code,
-      expires: Date.now() + 5 * 60 * 1000,
-    };
+        const code = Math.floor(100000 + Math.random() * 900000);
+        resetStore[email] = {
+            code,
+            expires: Date.now() + 5 * 60 * 1000,
+        };
 
-    await sendResetCodeEmail(email, code);
-    res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" });
-  } catch (err) {
-    console.error("❌ Lỗi forgotPassword:", err);
-    res.status(500).json({ error: "Không gửi được email" });
-  }
+        // -------------------------------------------------------------
+        // 🔥 KHÔNG DÙNG AWAIT! Server trả lời client ngay lập tức.
+        sendResetCodeEmail(email, code).catch(err => {
+            // Ghi log lỗi nếu email gửi thất bại (không ảnh hưởng đến response)
+            console.error("❌ Lỗi gửi email sau khi response:", err); 
+        });
+        // -------------------------------------------------------------
+
+        // ✅ Trả lời client ngay lập tức để tránh timeout.
+        res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" }); 
+    } catch (err) {
+        console.error("❌ Lỗi forgotPassword:", err);
+        res.status(500).json({ error: "Lỗi server khi xử lý yêu cầu." });
+    }
 };
 
 // [POST] /api/auth/verify-reset-code
