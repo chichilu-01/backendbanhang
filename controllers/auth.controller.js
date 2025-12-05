@@ -20,30 +20,35 @@ const isCodeValid = (store, email, code) => {
 
 // [POST] /api/auth/register
 export const register = async (req, res) => {
-  const { name, email, password, role = "user" } = req.body;
+const { name, email, password, role = "user" } = req.body;
 
-  try {
-    const existing = await query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
-    if (existing.length > 0)
-      return res.status(400).json({ error: "Email đã được sử dụng" });
+try {
+const existing = await query("SELECT * FROM users WHERE email = ?", [
+email,
+]);
+if (existing.length > 0)
+return res.status(400).json({ error: "Email đã được sử dụng" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const otp = Math.floor(100000 + Math.random() * 900000);
+const hashedPassword = await bcrypt.hash(password, 10);
+const otp = Math.floor(100000 + Math.random() * 900000);
 
-    otpStore[email] = {
-      code: otp,
-      data: { name, email, hashedPassword, role },
-      expires: Date.now() + 5 * 60 * 1000,
-    };
+otpStore[email] = {
+code: otp,
+data: { name, email, hashedPassword, role },
+expires: Date.now() + 5 * 60 * 1000,
+};
 
-    await sendVerificationEmail(email, otp);
-    res.json({ message: "📩 Mã xác nhận đã gửi đến email" });
-  } catch (err) {
-    console.error("❌ Lỗi register:", err);
-    res.status(500).json({ error: "Lỗi khi xử lý đăng ký" });
-  }
+// 🔥 CẦN SỬA: Loại bỏ 'await' để tránh timeout khi đăng ký
+sendVerificationEmail(email, otp).catch(err => {
+console.error("❌ Lỗi gửi email xác nhận sau khi response:", err);
+});
+
+    // ✅ Trả lời client ngay lập tức sau khi lưu OTP vào RAM
+res.json({ message: "📩 Mã xác nhận đã gửi đến email" });
+} catch (err) {
+console.error("❌ Lỗi register:", err);
+res.status(500).json({ error: "Lỗi khi xử lý đăng ký" });
+}
 };
 
 // [POST] /api/auth/verify-code
@@ -103,38 +108,33 @@ export const login = async (req, res) => {
 };
 
 // [POST] /api/auth/forgot-password
-// file: [Tên file controller của bạn]
-
-// [POST] /api/auth/forgot-password
 export const forgotPassword = async (req, res) => {
-    const { email } = req.body;
+const { email } = req.body;
 
-    try {
-        const users = await query("SELECT * FROM users WHERE email = ?", [email]);
-        if (users.length === 0)
-            // Nên trả về 200/202 để tránh người khác scan email
-            return res.status(404).json({ error: "Email không tồn tại" }); 
+try {
+const users = await query("SELECT * FROM users WHERE email = ?", [email]);
 
-        const code = Math.floor(100000 + Math.random() * 900000);
-        resetStore[email] = {
-            code,
-            expires: Date.now() + 5 * 60 * 1000,
-        };
+// ✅ SỬA LOGIC BẢO MẬT: Luôn trả về 200/thông báo chung
+if (users.length === 0) {
+// 💡 Trả về thông báo thành công chung để ẩn sự tồn tại của email
+return res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" });
+}
 
-        // -------------------------------------------------------------
-        // 🔥 KHÔNG DÙNG AWAIT! Server trả lời client ngay lập tức.
-        sendResetCodeEmail(email, code).catch(err => {
-            // Ghi log lỗi nếu email gửi thất bại (không ảnh hưởng đến response)
-            console.error("❌ Lỗi gửi email sau khi response:", err); 
-        });
-        // -------------------------------------------------------------
+const code = Math.floor(100000 + Math.random() * 900000);
+resetStore[email] = {
+code,
+expires: Date.now() + 5 * 60 * 1000,
+};
 
-        // ✅ Trả lời client ngay lập tức để tránh timeout.
-        res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" }); 
-    } catch (err) {
-        console.error("❌ Lỗi forgotPassword:", err);
-        res.status(500).json({ error: "Lỗi server khi xử lý yêu cầu." });
-    }
+sendResetCodeEmail(email, code).catch(err => {
+console.error("❌ Lỗi gửi email sau khi response:", err);
+});
+
+res.json({ message: "📩 Đã gửi mã đặt lại mật khẩu" });
+} catch (err) {
+console.error("❌ Lỗi forgotPassword:", err);
+res.status(500).json({ error: "Lỗi server khi xử lý yêu cầu." });
+}
 };
 
 // [POST] /api/auth/verify-reset-code
