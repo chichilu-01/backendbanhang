@@ -1,15 +1,18 @@
 import { createTransport } from "nodemailer";
 
+// Cấu hình SMTP Host và API Key của SendGrid
 const transporter = createTransport({
-  host: "smtp.gmail.com", // Chỉ định rõ ràng host
-  port: 465, // Cổng SSL/TLS
-  secure: true, // Bật kết nối bảo mật (SSL)
+  host: "smtp.sendgrid.net",
+  port: 587,
+  secure: false, // Không phải SSL, dùng STARTTLS
+  requireTLS: true, // Yêu cầu TLS
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Phải là App Password
+    // Luôn sử dụng 'apikey' cho user khi dùng API Key
+    user: "apikey",
+
+    // Sử dụng biến môi trường mới
+    pass: process.env.SENDGRID_API_KEY,
   },
-  // Đặt timeout nếu cần, nhưng thường không cần thiết
-  // timeout: 10000,
 });
 
 export default transporter;
